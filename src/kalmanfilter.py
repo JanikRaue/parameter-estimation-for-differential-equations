@@ -4,9 +4,7 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 import click
 
-#from visualisation import plot_param_process, plot_progress
 from src.data import LorenzSystem, SirModel
-
 from src.visualisation import plot_param_process, plot_progress
 
 

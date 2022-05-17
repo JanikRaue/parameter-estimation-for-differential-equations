@@ -6,8 +6,8 @@ import pylab
 import click
 from mpl_toolkits import mplot3d
 
-
 colors = ['r', 'b', 'g', 'y']
+
 
 def rk_update(func, t, y, h):
     """

@@ -2,14 +2,14 @@ import numpy
 import pandas
 import click
 
+from src.data import LorenzSystem, SirModel
+from src.visualisation import plot_param_process, plot_progress
+
 # import deepxde and set backend to 'pytorch'
 import deepxde
 if deepxde.backend.get_preferred_backend() != 'pytorch':
     deepxde.backend.set_default_backend('pytorch')
 deepxde.config.real.set_float64()
-
-from src.data import LorenzSystem, SirModel
-from src.visualisation import plot_param_process, plot_progress
 
 
 class PhysicsInformedNeuralNet:
@@ -22,9 +22,12 @@ class PhysicsInformedNeuralNet:
         self.params = {key: deepxde.Variable(0.1) for key in self.differential_equation.param}
         self.geom = deepxde.geometry.TimeDomain(0, self.differential_equation.end_time)
         # initial values
-        ic_y_1 = deepxde.IC(self.geom, lambda x: self.differential_equation.initial_condition['y_1'], self.boundary, component=0)
-        ic_y_2 = deepxde.IC(self.geom, lambda x: self.differential_equation.initial_condition['y_2'], self.boundary, component=1)
-        ic_y_3 = deepxde.IC(self.geom, lambda x: self.differential_equation.initial_condition['y_3'], self.boundary, component=2)
+        ic_y_1 = deepxde.IC(self.geom, lambda x: self.differential_equation.initial_condition['y_1'], self.boundary,
+                            component=0)
+        ic_y_2 = deepxde.IC(self.geom, lambda x: self.differential_equation.initial_condition['y_2'], self.boundary,
+                            component=1)
+        ic_y_3 = deepxde.IC(self.geom, lambda x: self.differential_equation.initial_condition['y_3'], self.boundary,
+                            component=2)
         # observations
         observe_y_1 = deepxde.PointSetBC(self.input_data['t'], self.input_data['y_1'], component=0)
         observe_y_2 = deepxde.PointSetBC(self.input_data['t'], self.input_data['y_2'], component=1)
@@ -56,9 +59,9 @@ class PhysicsInformedNeuralNet:
         ds_t = deepxde.grad.jacobian(y, x, i=0)
         di_t = deepxde.grad.jacobian(y, x, i=1)
         dr_t = deepxde.grad.jacobian(y, x, i=2)
-        return [ds_t + (self.params['beta'] * S/self.N * I),
-                di_t - (self.params['beta'] * S/self.N * I) + self.params['gamma']*I,
-                dr_t - self.params['gamma']*I]
+        return [ds_t + (self.params['beta'] * S / self.N * I),
+                di_t - (self.params['beta'] * S / self.N * I) + self.params['gamma'] * I,
+                dr_t - self.params['gamma'] * I]
 
     def lorenz_system(self, x, y):
         """Lorenz system.
@@ -96,7 +99,8 @@ class PhysicsInformedNeuralNet:
     def get_param_history(self):
         lines = open(self.filename, "r").readlines()
         epochs = numpy.array([int(line.split()[0]) for line in lines])
-        value_progress = numpy.array([numpy.fromstring(line.replace(']\n', '').split(' [')[1], sep=',') for line in lines])
+        value_progress = numpy.array(
+            [numpy.fromstring(line.replace(']\n', '').split(' [')[1], sep=',') for line in lines])
         df = pandas.DataFrame(value_progress, columns=[*self.differential_equation.param.keys()])
         df.index = epochs
         return df
@@ -105,6 +109,7 @@ class PhysicsInformedNeuralNet:
         if pred_input is None:
             pred_input = self.input_data['t']
         return self.model.predict(pred_input)
+
 
 @click.command()
 @click.option('--model_name', default='lorenz', help="Choose 'lorenz' for LorenzSystem or 'sir' for SirModel.")
@@ -124,6 +129,7 @@ def main(model_name, save_dir):
                   prediction=pinn.predict(pinn.input_data['t']))
     plot_param_process(true_params=pinn.differential_equation.param,
                        df_progress=pinn.get_param_history())
+
 
 if __name__ == '__main__':
     main()
