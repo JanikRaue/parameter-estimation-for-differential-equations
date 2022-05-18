@@ -6,6 +6,13 @@ import pylab
 import click
 from mpl_toolkits import mplot3d
 
+plt.rcParams.update({'font.size': 30,
+                     "figure.figsize": (16, 8),
+                     'text.usetex': True,
+                     'text.latex.preamble': r'\usepackage{lmodern}',
+                     'font.weight': 'bold',
+                     "axes.labelweight": "bold"})
+
 colors = ['r', 'b', 'g', 'y']
 
 
@@ -35,9 +42,8 @@ class DifferentialEquation:
         self.initial_condition = initial_condition
         self.end_time = end_time
         self.number_of_data = number_of_data
-        self.noise_std = numpy.sqrt(noise_variance)
+        self.noise_variance = noise_variance
         self.data = pandas.DataFrame()
-        self.set_data()
 
     def set_data(self):
         # step_size
@@ -48,7 +54,7 @@ class DifferentialEquation:
         for t in ob_t[1:]:
             ob_y.append(rk_update(func=self.ode, t=t, y=ob_y[-1], h=h))
         ob_y = numpy.array(ob_y)
-        ob_y += numpy.random.normal(loc=0, scale=self.noise_std, size=ob_y.shape)
+        ob_y += numpy.random.normal(loc=0, scale=self.noise_variance, size=ob_y.shape)
         self.data = pandas.DataFrame(ob_y, index=ob_t, columns=['y_1', 'y_2', 'y_3'])
 
     def get_data(self, return_type='DataFrame'):
@@ -63,9 +69,6 @@ class DifferentialEquation:
             raise NotImplemented(msg)
 
     def plot_data(self, kind='2d', data=None, save_dir=None):
-        if data is None:
-            data = self.data
-
         if kind == '2d':
             self.plot_2d()
         elif kind == '3d':
@@ -75,18 +78,24 @@ class DifferentialEquation:
         if save_dir is None:
             plt.show()
         elif os.path.isdir(save_dir):
-            param_str = r"rho-{:.0f}_sigma-{:.0f}_beta-{:.0f}".format(*self.param.values())
+            if self.name == 'lorenz':
+                param_str = r"rho-{:.0f}_sigma-{:.0f}_beta-{:.0f}".format(*self.param.values())
+            elif self.name == 'sir':
+                param_str = r"beta-{:.0f}_gamma-{:.0f}".format(*self.param.values())
             ic_str = r"t-{:.0f}_y1-{:.0f}_y2-{:.0f}_y3-{:.0f}".format(*self.initial_condition.values())
-            plt.savefig(f'{save_dir}/lorenz_system_{kind}_{param_str}_{ic_str}.png', dpi=300)
+            noise_str = f"noise-{self.noise_variance}"
+            plt.savefig(f'{save_dir}/{self.name}_{kind}_{param_str}_{ic_str}_{noise_str}.png',
+                        dpi=300, bbox_inches='tight')
+        plt.close()
 
 
 class SirModel(DifferentialEquation):
     def __init__(self, param=None, initial_condition=None, end_time=99, number_of_data=100, noise_variance=0):
         DifferentialEquation.__init__(self, param, initial_condition, end_time, number_of_data, noise_variance)
         if initial_condition is None:
-            initial_condition = {'t': 0, 'y_1': 999.0, 'y_2': 1.0, 'y_3': 0.0}
+            self.initial_condition = {'t': 0, 'y_1': 999.0, 'y_2': 1.0, 'y_3': 0.0}
         if param is None:
-            param = {'beta': 0.15, 'gamma': 1 / 8}
+            self.param = {'beta': 0.15, 'gamma': 1 / 8}
         self.name = 'sir'
 
     def ode(self, t, y):
@@ -97,27 +106,26 @@ class SirModel(DifferentialEquation):
         return numpy.array(dy_dt)
 
     def plot_2d(self):
-        if self.noise_std == 0:
+        if self.noise_variance == 0:
             legend = [r"$S$", r"$I$", r"$R$"]
             marker = '-'
         else:
             legend = [r"$S^{\ast}$", r"$I^{\ast}$", r"$R^{\ast}$"]
             marker = 'x'
-        plt.figure(figsize=(12, 9))
         for i, col in enumerate(self.data.columns):
             plt.plot(self.data.index, self.data[col], f"{colors[i]}{marker}")
         plt.ylabel(r"$state$")
         plt.xlabel(r"$time$")
-        plt.legend(legend, loc='upper center', bbox_to_anchor=(0.5, 1.11), ncol=3)
+        plt.legend(legend, loc='upper center', bbox_to_anchor=(0.5, 1.17), ncol=3)
 
 
 class LorenzSystem(DifferentialEquation):
     def __init__(self, param=None, initial_condition=None, end_time=3, number_of_data=100, noise_variance=0):
         DifferentialEquation.__init__(self, param, initial_condition, end_time, number_of_data, noise_variance)
         if initial_condition is None:
-            initial_condition = {'t': 0, 'y_1': -5, 'y_2': 10, 'y_3': 25}
+            self.initial_condition = {'t': 0, 'y_1': -5, 'y_2': 10, 'y_3': 25}
         if param is None:
-            param = {'rho': 8, 'sigma': 16, 'beta': 2}
+            self.param = {'rho': 8, 'sigma': 16, 'beta': 2}
         self.name = 'lorenz'
 
     def ode(self, t, y):
@@ -140,7 +148,7 @@ class LorenzSystem(DifferentialEquation):
 
     def plot_2d(self):
         # plt.figure(figsize=(12, 9))
-        if self.noise_std == 0:
+        if self.noise_variance == 0:
             legend = [r"$y_1$", r"$y_2$", r"$y_3$"]
             marker = '-'
         else:
@@ -152,7 +160,7 @@ class LorenzSystem(DifferentialEquation):
         plt.ylabel(r"$state$")
         plt.xlabel(r"$time$")
         plt.ylim(-10, 30)
-        plt.legend(legend, loc='upper center', bbox_to_anchor=(0.5, 1.1), ncol=3)
+        plt.legend(legend, loc='upper center', bbox_to_anchor=(0.5, 1.17), ncol=3)
 
 
 @click.command()
@@ -165,6 +173,7 @@ def main(model_name, save_dir):
         diff_equation = SirModel()
     else:
         raise NotImplemented(f"The model_name must be either 'lorenz' or 'sir'.")
+    diff_equation.set_data()
     diff_equation.plot_data(save_dir=save_dir)
 
 
